@@ -1,0 +1,106 @@
+/*
+	Stuffs to add:
+
+		- Save tries between maps.
+		- PUM list command to show all blocked weapons.
+		- If possibile, update with Hamsandwich.
+		- Natives / Forwards.
+		- PUM command to reset all tries ( No more blocked weapons ).
+		- More testings.
+*/
+
+#include <amxmodx>
+#include <amxmisc>
+#include <fakemeta>
+#include <nvault>
+#include <cstrike>
+
+new const PLUGIN[]	= "CS Pick up manager",
+	 VERSION[]	= "0.2",
+	  AUTHOR[]	= "Craxor";
+
+new giTypeCvar;
+new gNewVault;
+new const PLAYER_CASS[] = "player";
+new const m_rgpPlayerItems_CWeaponBox[6] = {34,35,...}; 
+
+const XO_CWEAPONBOX = 4;
+
+public plugin_init( )
+{
+	register_plugin
+	(
+		.plugin_name = PLUGIN, 
+		.version     = VERSION, 
+		.author      = AUTHOR
+	)
+
+	gNewVault = nvault_open( "cspick_up_manager_vault" );
+
+	// You need register_touch and stop using this forward.
+	register_forward( FM_Touch, "WeaponTouchFwd" );
+
+	register_concmd( "amx_cspum_addkey" ,"addkey", ADMIN_BAN, " < Weapon key-name to block > ");
+	register_concmd( "amx_cspum_remkey" ,"remkey", ADMIN_BAN, " < Weapon key-name to block > ");
+
+	giTypeCvar = register_cvar("cspum_type", "1" );
+
+ 	register_touch("armoury_entity", PLAYER_CLASS, "OnPlayerTouchArmoury"); 
+	register_touch("weaponbox", PLAYER_CLASS, "OnPlayerTouchWeaponBox"); 
+	register_touch("weapon_shield", PLAYER_CLASS, "OnPlayerTouchShield"); 
+}
+
+
+public addkey( id, level, cid )
+{
+	if( !cmd_access( id, level, cid, 2 ) )
+		return PLUGIN_HANDLED;
+
+	new Arg1[16];
+	read_argv( 1, Arg1, charsmax( Arg1 ) );
+
+	new adder[64];
+	formatex( adder, charsmax( adder ), "models/w_%s.mdl", Arg1 );
+
+	nvault_set( gNewVault, adder , 1);
+
+	return PLUGIN_HANDLED;
+}
+
+public remkey( id, level, cid )
+{
+	if( !cmd_access( id, level, cid, 2 ) )
+		return PLUGIN_HANDLED;
+
+	new Arg1[16];
+	read_argv( 1, Arg1, charsmax( Arg1 ) );
+
+	new adder[64];
+	formatex( adder, charsmax( adder ), "models/w_%s.mdl", Arg1 );
+
+	nvault_remove( gNewVault, adder );
+
+	return PLUGIN_HANDLED;
+}
+ 
+public WeaponTouchFwd( Entity, Id )
+{
+	if ( !pev_valid( Entity ) || !pev_valid( Id ) || !is_user_alive( Id ) )
+		return FMRES_IGNORED;
+
+        new Model[32];
+        pev(Entity, pev_model, Model, charsmax( Model ) );
+
+	new iCvarValue = get_pcvar_num( giTypeCvar );
+
+	if( TrieKeyExists( g_tBlock, Model ) )
+	{
+		switch( iCvarValue )
+		{
+			case 1: engfunc( EngFunc_RemoveEntity, Entity );
+			case 2: return FMRES_SUPERCEDE;
+			default: return FMRES_IGNORED;
+		}
+	}
+	return FMRES_IGNORED;
+}
